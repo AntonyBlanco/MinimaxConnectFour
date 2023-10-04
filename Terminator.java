@@ -1,7 +1,7 @@
 import java.util.*;
 
-public class Terminator {
-	public final int line_size = 4;
+public class Terminator implements FourInARowInterface{
+	public int line_size = 4; // Four in a row
 
 	private int width;
 	private int height;
@@ -23,75 +23,172 @@ public class Terminator {
 	// depth_search for minimax search in the tree
 	private int depth_search;
 
-	private int[] lastTerminatorPlay;
+	// Last terminator play on x axis
+	private int lastTerminatorPlay;
 
-	public Terminator(int width, int height, int depth_search){
+	private boolean gameEnded;
+
+	// Can take -1, +2 or 0 values representing EXTERNAL, COMPUTER and TIE
+	private int winner;
+
+	// Player turns: EXTERNAL_PIECE or COMPUTER_PIECE
+	private int turn;
+
+	public Terminator(int width, int height, int depth_search, int turn, int line_size){
 		this.width = width;
 		this.height = height;
 		this.depth_search = depth_search;
-		this.restart();
-		this.lastTerminatorPlay = new int[2]; // Computer play in [x, y] format
+		this.restart(turn);
+		this.line_size = line_size;
 	}
-
+	
 	public void restart(){
 		this.table = new int[this.height][this.width];
 		this.filledColumns = new int[this.width];
+		this.lastTerminatorPlay = -1; // Computer play on x axis
+		this.gameEnded = false;
+		this.winner = 0;
+	}
+
+	public void restart(int turn){
+		restart();
+		this.turn = turn;
 	}
 
 	public boolean play(int x){ // Only x because of falling pieces
+		if(this.gameEnded) return false; // Game ended
 		if(!isValidMove(x)) return false; // couldn't perform the play because full column
 		int y = this.height - filledColumns[x] - 1;
 		table[y][x] = EXTERNAL_PIECE;
 		print("Game State (External play): \n" + this.toString());
 		filledColumns[x]++;
+
+		checkWinLose();
+
 		calculateTerminatorPlay(); // Minimax calculation play for Terminator
 		return true;
 	}
 
-	public int[] getLastTerminatorPlay(){
-		return this.lastTerminatorPlay;// Computer play in [x, y] format
+	public int getLastTerminatorPlay(){
+		return this.lastTerminatorPlay; // Computer play on x axis
+	}
+
+	public boolean getGameEnded(){
+		return this.gameEnded;
+	}
+
+	public int getWinner(){
+		if(!this.gameEnded) return -2; // Game not ended yet
+		return winner;
 	}
 
 	// Minimax use for calculating the posibbly next best move
 	private void calculateTerminatorPlay(){
+		if(this.gameEnded) return; // Game ended
 		int y, x;
 		do{
-			x = (int)(Math.random() * this.width);
+			//x = (int)(Math.random() * this.width);
+			Scanner sc = new Scanner(System.in);
+			x = sc.nextInt() - 1;
 		}while(!isValidMove(x));
 		y = this.height - filledColumns[x] - 1;
 		table[y][x] = COMPUTER_PIECE;
 		print("Game State (Computer play): \n" + this.toString());
 		filledColumns[x]++;
+		lastTerminatorPlay = x;
+
+		checkWinLose();
 	}
 
+	private void checkWinLose(){
+		int gameStatus = verifyGameStatus();
+		println("## Received position winner: " + gameStatus);
+		switch(gameStatus){
+			case 0: // TIE
+				for(int i = 0; i < width; i++)
+					if(filledColumns[i] != height) return;
+				gameEnded = true;
+				break;
+			case -1: // Winner EXTERNAL_PIECE
+				gameEnded = true;
+				break;
+			case 1: // Winner COMPUTER_PIECE
+				gameEnded = true;
+				break;
+		}
+	}
+	
 	// Función optimizada para verificar qué jugador ganó el juego
 	private int verifyGameStatus(){
-		for(int j = 0; j < height; j++){
-			for(int i = 0; i < width; i++){
-				int positionWinner = verifyPosition(i, j);
-				if(positionWinner != 0) return positionWinner;
-			}
+		for(int i = 0; i < width; i++){
+			int positionWinner = verifyPosition(i);
+			if(positionWinner != 0) return positionWinner;
 		}
 		return 0;
 	}
 	// For exclusive use by verifyGameStatus
-	private int verifyPosition(int x, int y){
-		int verticalLine = 0;
-		int horizontalLine = 0;
-		int diagonal01Line = 0;
-		int diagonal02Line = 0;
-		// Verificar si existe linea en los 4 sentidos posibles
-		for(int i = 0; i < 3; i++){
-			if(table[y+i][x] == table[y+i+1][x]) verticalLine++;
-			if(verticalLine == 3) return table[y][x];
-			if(table[y][x+i] == table[y][x+i+1]) horizontalLine++;
-			if(horizontalLine == 3) return table[y][x];
-			if(table[y+i][x+i] == table[y+i+1][x+i+1]) diagonal01Line++;
-			if(diagonal01Line == 3) return table[y][x];
-			if(table[y+i][x-i] == table[y+i+1][x-i-1]) diagonal02Line++;
-			if(diagonal02Line == 3) return table[y][x];
+	private int verifyPosition(int x){
+		int y = this.height - filledColumns[x];
+		if(y >= height) return 0; // Empty column
+		println("Verifying at [" + x + ":" + y + "]");
+		/** Verify winning move on every 7 possible lines
+		*   (1) Horizontal to right
+		*   (1) Horizontal to leftt
+		*   (1) Vertical to bottom
+		*   (4) Four Diagonals
+		*/
+		boolean vrf_vertical = y <= height - this.line_size;
+		boolean vrf_horizontal_r = x <= width - this.line_size;
+		boolean vrf_horizontal_l = x >= this.line_size-1;
+		boolean vrf_diagonal_11 = x <= width - this.line_size && y >= this.line_size-1;
+		boolean vrf_diagonal_01 = x >= this.line_size-1 && y >= this.line_size-1;
+		boolean vrf_diagonal_10 = x <= width - this.line_size && y <= height - this.line_size;
+		boolean vrf_diagonal_00 = x >= this.line_size-1 && y <= height - this.line_size;
+		for(int i = 0; i < this.line_size-1; i++){
+			if(vrf_vertical){
+				if(table[y+i][x] != table[y+i+1][x])
+					vrf_vertical = false;
+			}
+			print(vrf_vertical + " ");
+			if(vrf_horizontal_r){
+				if(table[y][x+i] != table[y][x+i+1])
+					vrf_horizontal_r = false;
+			}
+			print(vrf_horizontal_r + " ");
+			if(vrf_horizontal_l){
+				if(table[y][x-i] != table[y][x-i-1])
+					vrf_horizontal_l = false;
+			}
+			print(vrf_horizontal_l + " ");
+			if(vrf_diagonal_11){
+				if(table[y-i][x+i] != table[y-i-1][x+i+1])
+					vrf_diagonal_11 = false;
+			}
+			print(vrf_diagonal_11 + " ");
+			if(vrf_diagonal_10){
+				if(table[y+i][x+i] != table[y+i+1][x+i+1])
+					vrf_diagonal_10 = false;
+			}
+			print(vrf_diagonal_10 + " ");
+			if(vrf_diagonal_00){
+				if(table[y+i][x-i] != table[y+i+1][x-i-1])
+					vrf_diagonal_00 = false;
+			}
+			print(vrf_diagonal_00 + " ");
+			if(vrf_diagonal_01){
+				if(table[y-i][x-i] != table[y-i-1][x-i-1])
+					vrf_diagonal_01 = false;
+			}
+			print(vrf_diagonal_01 + " ");
+			println();
 		}
-		return 0;
+		return (vrf_vertical ||
+				vrf_horizontal_r ||
+				vrf_horizontal_l ||
+				vrf_diagonal_11 ||
+				vrf_diagonal_01 ||
+				vrf_diagonal_10 ||
+				vrf_diagonal_00) ? table[y][x] : 0;
 	}
 
 	private boolean isValidMove(int x){
@@ -110,19 +207,23 @@ public class Terminator {
 			}
 			str += "]\n";
 		}
+		str += "game ended? " + gameEnded + "\n";
 		return str;
 	}
 
 	public static void main(String[] args){
-		Terminator ter = new Terminator(10, 10, 2);
+		int w, h;
+		w = h = 6;
+		Terminator ter = new Terminator(w, h, 2, Terminator.EXTERNAL_PIECE);
 		print("Game Start:\n" + ter.toString());
 		Scanner sc = new Scanner(System.in);
 		int ext_play;
-		while(true){
+		while(!ter.getGameEnded()){
 			print("Insert move (1-10): ");
 			ext_play = sc.nextInt();
 			if(!ter.play(ext_play-1)){
-				println("Couldn't play that move. Full column. Play another.");
+				println("Couldn't play that move.");
+				println("Full column or unexistent column. Play another.");
 			}
 		}
 	}
