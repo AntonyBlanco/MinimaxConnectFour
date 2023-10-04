@@ -214,7 +214,7 @@ public class Terminator implements FourInARowInterface{
 	public static void main(String[] args){
 		int w, h;
 		w = h = 6;
-		Terminator ter = new Terminator(w, h, 2, Terminator.EXTERNAL_PIECE);
+		Terminator ter = new Terminator(w, h, 2, Terminator.EXTERNAL_PIECE, 4);
 		print("Game Start:\n" + ter.toString());
 		Scanner sc = new Scanner(System.in);
 		int ext_play;
